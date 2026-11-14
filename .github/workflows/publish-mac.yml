@@ -48,8 +48,12 @@ jobs:
           Early ad-hoc signed builds, not Apple-notarized. macOS may block first launch; review System Settings → Privacy & Security → Open Anyway if you trust the download. Export drafts before switching server hostnames. Local Roblox features requiring Windows remain Windows-only. Not an iPhone/iPad app.
           NOTES
           gh release view v0.3.15 || gh release create v0.3.15 --draft --title 'Blockyard Player 0.3.15 — macOS' --notes-file player-notes.md
-          gh release upload v0.3.15 player/release-mac/BlockyardPlayer-* --clobber
+          if [ "$(gh release view v0.3.15 --json assets --jq '.assets|length')" -eq 0 ]; then gh release upload v0.3.15 player/release-mac/BlockyardPlayer-*; fi
+          (cd player/release-mac && sha256sum BlockyardPlayer-*.dmg BlockyardPlayer-*.zip > SHA256SUMS.txt)
+          gh release upload v0.3.15 player/release-mac/SHA256SUMS.txt --clobber
           gh release edit v0.3.15 --draft=false --latest=false
           gh release view studio-v0.2.10 || gh release create studio-v0.2.10 --draft --prerelease --title 'Blockyard Studio 0.2.10 — macOS' --notes-file studio-notes.md
-          gh release upload studio-v0.2.10 studio/studio-release-mac/BlockyardStudio-* --clobber
+          if [ "$(gh release view studio-v0.2.10 --json assets --jq '.assets|length')" -eq 0 ]; then gh release upload studio-v0.2.10 studio/studio-release-mac/BlockyardStudio-*; fi
+          (cd studio/studio-release-mac && sha256sum BlockyardStudio-*.dmg BlockyardStudio-*.zip > SHA256SUMS.txt)
+          gh release upload studio-v0.2.10 studio/studio-release-mac/SHA256SUMS.txt --clobber
           gh release edit studio-v0.2.10 --draft=false --prerelease
