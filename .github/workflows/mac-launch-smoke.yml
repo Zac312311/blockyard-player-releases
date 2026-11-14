@@ -1,0 +1,44 @@
+name: Launch published Mac apps
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launch:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-latest, macos-15-intel]
+        product: [Player, Studio]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    steps:
+      - name: Download published Mac app
+        env:
+          PRODUCT: ${{ matrix.product }}
+        run: |
+          if [ "$(uname -m)" = arm64 ]; then arch=arm64; else arch=x64; fi
+          if [ "$PRODUCT" = Player ]; then version=0.3.15; tag=v0.3.15; else version=0.2.10; tag=studio-v0.2.10; fi
+          curl --fail --silent --show-error --location "https://github.com/Zac312311/blockyard-player-releases/releases/download/$tag/Blockyard$PRODUCT-$version-mac-$arch.zip" -o app.zip
+          unzip -q app.zip -d app
+          codesign --verify --deep --strict "app/Blockyard $PRODUCT.app"
+      - name: Launch and verify an application window
+        env:
+          PRODUCT: ${{ matrix.product }}
+        run: |
+          app_path="$PWD/app/Blockyard $PRODUCT.app"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_path/Contents/Info.plist")
+          if [ "$PRODUCT" = Player ]; then extra=--updated; else extra=--studio-origin=https://blockyard-g3zs.onrender.com; fi
+          "$app_path/Contents/MacOS/$executable" --remote-debugging-port=9222 "$extra" > app.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          found=0
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:9222/json > windows.json; then
+              if node -e 'const pages=require("./windows.json");process.exit(pages.some(p=>p.type==="page"&&/launching\.html|studio/.test(p.url))?0:1)'; then found=1; break; fi
+            fi
+            sleep 1
+          done
+          if [ "$found" != 1 ]; then cat app.log; exit 1; fi
+          node -e 'for(const p of require("./windows.json"))if(p.type==="page")console.log("Verified app window:",p.title,p.url)'
+          kill -0 "$app_pid"
