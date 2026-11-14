@@ -1,0 +1,55 @@
+name: Publish built Mac installers
+on:
+  workflow_dispatch:
+    inputs:
+      player_artifact_url:
+        description: Short-lived download URL for the mac-player build artifact
+        required: true
+      studio_artifact_url:
+        description: Short-lived download URL for the mac-studio build artifact
+        required: true
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Mask artifact URLs before use
+        run: |
+          node -e 'const fs=require("fs"),event=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH));for(const value of Object.values(event.inputs))console.log("::add-mask::"+value);'
+      - name: Download built installers
+        run: |
+          node <<'JS'
+          const fs=require('fs'),{spawnSync}=require('child_process');
+          const inputs=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)).inputs;
+          for(const product of ['player','studio']) {
+            const url=new URL(inputs[product+'_artifact_url']);
+            if(url.protocol!=='https:'||!url.hostname.endsWith('.blob.core.windows.net'))throw Error('Expected a signed GitHub artifact download URL');
+            const result=spawnSync('curl',['--fail','--silent','--show-error','--max-time','300',url.href,'-o',product+'.zip'],{stdio:'inherit'});
+            if(result.status)process.exit(result.status);
+          }
+          JS
+          unzip -q player.zip -d player
+          unzip -q studio.zip -d studio
+      - name: Publish Mac release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > player-notes.md <<'NOTES'
+          Blockyard Player 0.3.15 for macOS 12 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Blockyard app icon, Play-link handling and main/Render/Bunny server fallbacks.
+
+          These builds are ad-hoc signed, not Apple-notarized. macOS may block first launch; review System Settings → Privacy & Security → Open Anyway if you trust the download. Not an iPhone/iPad app. Windows downloads remain on the existing Windows release.
+          NOTES
+          cat > studio-notes.md <<'NOTES'
+          Blockyard Studio 0.2.10 for macOS 12 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Studio app icon, official-server fallback and the Server menu with Bunny support.
+
+          Early ad-hoc signed builds, not Apple-notarized. macOS may block first launch; review System Settings → Privacy & Security → Open Anyway if you trust the download. Export drafts before switching server hostnames. Local Roblox features requiring Windows remain Windows-only. Not an iPhone/iPad app.
+          NOTES
+          gh release view v0.3.15 || gh release create v0.3.15 --draft --title 'Blockyard Player 0.3.15 — macOS' --notes-file player-notes.md
+          gh release upload v0.3.15 player/release-mac/BlockyardPlayer-* --clobber
+          gh release edit v0.3.15 --draft=false --latest=false
+          gh release view studio-v0.2.10 || gh release create studio-v0.2.10 --draft --prerelease --title 'Blockyard Studio 0.2.10 — macOS' --notes-file studio-notes.md
+          gh release upload studio-v0.2.10 studio/studio-release-mac/BlockyardStudio-* --clobber
+          gh release edit studio-v0.2.10 --draft=false --prerelease
