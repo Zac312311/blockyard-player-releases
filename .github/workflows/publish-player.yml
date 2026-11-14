@@ -1,0 +1,48 @@
+name: Publish Player release
+on:
+  workflow_dispatch:
+    inputs:
+      artifacts:
+        description: JSON object of platform names to short-lived GitHub artifact URLs
+        required: true
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Mask temporary download addresses
+        run: |
+          node -e 'const fs=require("fs"),e=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH));for(const value of Object.values(JSON.parse(e.inputs.artifacts)))console.log("::add-mask::"+value);'
+      - name: Download build artifacts
+        run: |
+          node <<'JS'
+          const fs=require('fs'),{spawnSync}=require('child_process');
+          const inputs=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)).inputs;
+          const data=JSON.parse(inputs.artifacts);
+          for(const platform of ['Windows','macOS','Linux']){
+            const url=new URL(data[platform]);if(url.protocol!=='https:'||!url.hostname.endsWith('.blob.core.windows.net'))throw Error('Expected a GitHub artifact URL');
+            let r=spawnSync('curl',['--fail','--silent','--show-error','--max-time','300',url.href,'-o',platform+'.zip'],{stdio:'inherit'});if(r.status)process.exit(r.status);
+            r=spawnSync('unzip',['-q',platform+'.zip','-d','packages/'+platform],{stdio:'inherit'});if(r.status)process.exit(r.status);
+          }
+          JS
+      - name: Publish installers and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<'NOTES'
+          Blockyard Player 0.4.0 adds pre-join graphics, volume, sensitivity, fullscreen and FPS settings; optional FPS/WebSocket ping/connection overlay; same-server reconnect attempts with Cancel and Retry; remembered window placement; cache and graphics repair; crash recovery; clearer launch errors; update progress and release documentation. Includes Windows, Linux, Intel Mac and Apple Silicon Mac downloads.
+
+          Mac requires macOS 13+. Mac builds are ad-hoc signed, not Apple-notarized; manual installation may be required. Windows builds are unsigned. Recovery does not restore unsaved game progress and uses a fresh website Play link rather than a saved ticket. Royard's Windows-only runtime is preserved; its rendering settings remain controlled by Royard.
+          NOTES
+          gh release view v0.4.0 || gh release create v0.4.0 --draft --title 'Blockyard Player 0.4.0' --notes-file notes.md
+          mapfile -d '' files < <(find packages -type f -name 'BlockyardPlayer*' -print0)
+          python - <<'PY'
+          import hashlib,pathlib
+          files=sorted(pathlib.Path('packages').rglob('BlockyardPlayer*'))
+          pathlib.Path('SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files if p.is_file()))
+          PY
+          gh release upload v0.4.0 "${files[@]}" SHA256SUMS.txt --clobber
+          gh release edit v0.4.0 --draft=false --latest=true
