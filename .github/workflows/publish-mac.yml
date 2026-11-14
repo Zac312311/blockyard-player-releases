@@ -38,12 +38,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           cat > player-notes.md <<'NOTES'
-          Blockyard Player 0.3.15 for macOS 12 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Blockyard app icon, Play-link handling and main/Render/Bunny server fallbacks.
+          Blockyard Player 0.3.15 for macOS 13 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Blockyard app icon, Play-link handling and main/Render/Bunny server fallbacks.
 
           These builds are ad-hoc signed, not Apple-notarized. macOS may block first launch; review System Settings → Privacy & Security → Open Anyway if you trust the download. Not an iPhone/iPad app. Windows downloads remain on the existing Windows release.
           NOTES
           cat > studio-notes.md <<'NOTES'
-          Blockyard Studio 0.2.10 for macOS 12 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Studio app icon, official-server fallback and the Server menu with Bunny support.
+          Blockyard Studio 0.2.10 for macOS 13 or newer, Apple Silicon and Intel. Open the DMG and drag the app into Applications. Includes the Studio app icon, official-server fallback and the Server menu with Bunny support.
 
           Early ad-hoc signed builds, not Apple-notarized. macOS may block first launch; review System Settings → Privacy & Security → Open Anyway if you trust the download. Export drafts before switching server hostnames. Local Roblox features requiring Windows remain Windows-only. Not an iPhone/iPad app.
           NOTES
