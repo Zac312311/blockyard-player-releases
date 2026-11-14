@@ -21,6 +21,7 @@ jobs:
           const fs=require('fs'),{spawnSync}=require('child_process');
           const inputs=JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH)).inputs;
           const data=JSON.parse(inputs.artifacts);
+          fs.mkdirSync('packages',{recursive:true});
           for(const platform of ['Windows','macOS','Linux']){
             const url=new URL(data[platform]);if(url.protocol!=='https:'||!url.hostname.endsWith('.blob.core.windows.net'))throw Error('Expected a GitHub artifact URL');
             let r=spawnSync('curl',['--fail','--silent','--show-error','--max-time','300',url.href,'-o',platform+'.zip'],{stdio:'inherit'});if(r.status)process.exit(r.status);
