@@ -18,7 +18,7 @@ jobs:
           PRODUCT: ${{ matrix.product }}
         run: |
           if [ "$(uname -m)" = arm64 ]; then arch=arm64; else arch=x64; fi
-          if [ "$PRODUCT" = Player ]; then version=0.3.15; tag=v0.3.15; else version=0.2.10; tag=studio-v0.2.10; fi
+          if [ "$PRODUCT" = Player ]; then version=0.4.0; tag=v0.4.0; else version=0.2.10; tag=studio-v0.2.10; fi
           curl --fail --silent --show-error --location "https://github.com/Zac312311/blockyard-player-releases/releases/download/$tag/Blockyard$PRODUCT-$version-mac-$arch.zip" -o app.zip
           unzip -q app.zip -d app
           codesign --verify --deep --strict "app/Blockyard $PRODUCT.app"
