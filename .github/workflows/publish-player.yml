@@ -5,6 +5,14 @@ on:
       artifacts:
         description: JSON object of platform names to short-lived GitHub artifact URLs
         required: true
+      version:
+        description: Player version to publish (for example 0.4.1)
+        required: false
+        default: '0.4.1'
+      notes:
+        description: Release notes
+        required: false
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -32,18 +40,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
         run: |
-          cat > notes.md <<'NOTES'
-          Blockyard Player 0.4.0 adds pre-join graphics, volume, sensitivity, fullscreen and FPS settings; optional FPS/WebSocket ping/connection overlay; same-server reconnect attempts with Cancel and Retry; remembered window placement; cache and graphics repair; crash recovery; clearer launch errors; update progress and release documentation. Includes Windows, Linux, Intel Mac and Apple Silicon Mac downloads.
-
-          Mac requires macOS 13+. Mac builds are ad-hoc signed, not Apple-notarized; manual installation may be required. Windows builds are unsigned. Recovery does not restore unsaved game progress and uses a fresh website Play link rather than a saved ticket. Royard's Windows-only runtime is preserved; its rendering settings remain controlled by Royard.
-          NOTES
-          gh release view v0.4.0 || gh release create v0.4.0 --draft --title 'Blockyard Player 0.4.0' --notes-file notes.md
+          printf '%s\n' "${NOTES:-Blockyard Player $VERSION.}" > notes.md
+          gh release view v$VERSION || gh release create v$VERSION --draft --title "Blockyard Player $VERSION" --notes-file notes.md
           mapfile -d '' files < <(find packages -type f -name 'BlockyardPlayer*' -print0)
           python - <<'PY'
           import hashlib,pathlib
           files=sorted(pathlib.Path('packages').rglob('BlockyardPlayer*'))
           pathlib.Path('SHA256SUMS.txt').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name+'\n' for p in files if p.is_file()))
           PY
-          gh release upload v0.4.0 "${files[@]}" SHA256SUMS.txt --clobber
-          gh release edit v0.4.0 --draft=false --latest=true
+          gh release upload v$VERSION "${files[@]}" SHA256SUMS.txt --clobber
+          gh release edit v$VERSION --draft=false --latest=true
